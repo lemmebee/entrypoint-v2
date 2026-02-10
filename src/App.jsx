@@ -5,12 +5,14 @@ import { usePlans } from "./hooks/usePlans";
 import { usePipelines } from "./hooks/usePipelines";
 import { useDate } from "./hooks/useDate";
 import { useCustomTypes } from "./hooks/useCustomTypes";
+import { useLocation } from "./hooks/useLocation";
 import PlanSidebar from "./components/PlanSidebar";
 import PlanEditor from "./components/PlanEditor";
 import CalendarView from "./components/CalendarView";
 import DailyView from "./components/DailyView";
 import ImportModal from "./components/ImportModal";
 import ExportModal from "./components/ExportModal";
+import LocationModal from "./components/LocationModal";
 
 export default function App() {
   const authCtx = useAuth(); // null when no AuthProvider
@@ -33,6 +35,8 @@ export default function App() {
   } = useDate();
 
   const { customTypes, customTypeColors, addCustomType, removeCustomType, mergeCustomTypes } = useCustomTypes();
+  const { location, setLocation, hasLocation } = useLocation();
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
   const {
     sections: pipelineSections,
@@ -150,6 +154,8 @@ export default function App() {
         <DailyView
           date={selectedDate}
           plan={dailyPlan}
+          location={location}
+          onOpenLocation={() => setShowLocationModal(true)}
           onUpdateBlocks={handleUpdateBlocks}
           onSelectDate={handleSelectDay}
           onMonth={handleBackToCalendar}
@@ -200,6 +206,12 @@ export default function App() {
           existingPipelines={pipelineSections}
           onConfirm={handleImportConfirm}
           onClose={() => setImportFile(null)}
+        />
+      )}
+      {(!hasLocation || showLocationModal) && (
+        <LocationModal
+          onSave={(loc) => { setLocation(loc); setShowLocationModal(false); }}
+          onClose={hasLocation ? () => setShowLocationModal(false) : undefined}
         />
       )}
     </div>

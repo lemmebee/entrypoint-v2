@@ -34,7 +34,7 @@ const DAY_LABELS = {
 const DAY_SHORT = ["M", "T", "W", "T", "F", "S", "S"];
 
 export default function DailyView({
-  date, plan, onUpdateBlocks, onMonth, onSelectDate,
+  date, plan, location, onOpenLocation, onUpdateBlocks, onMonth, onSelectDate,
   customTypes = [], customTypeColors = {}, onAddCustomType, onRemoveCustomType,
   pipelineSections = [], onAddSection, onUpdateSection, onDeleteSection,
   onToggleCollapse, onAddItem, onUpdateItem, onDeleteItem,
@@ -46,7 +46,7 @@ export default function DailyView({
   const dayKey = getDayKey(parseISO(date));
   const isToday = date === todayISO();
 
-  const { times } = usePrayerTimes({ date });
+  const { times } = usePrayerTimes({ date, city: location?.city, country: location?.country });
   const segments = useMemo(() => computeSegments(times), [times]);
   const prayerBlocks = useMemo(() => generatePrayerBlocks(times), [times]);
 
@@ -205,7 +205,9 @@ export default function DailyView({
       {/* Prayer times */}
       {times && (
         <div className="prayer-banner">
-          <div className="prayer-banner-title">PRAYER TIMES</div>
+          <div className="prayer-banner-title" onClick={onOpenLocation} style={{ cursor: "pointer" }}>
+            PRAYER TIMES{location?.city ? ` — ${location.city.toUpperCase()}` : ""}
+          </div>
           <div className="prayer-times-row">
             {Object.entries(times).map(([name, time]) => (
               <div key={name} className="prayer-time-item">

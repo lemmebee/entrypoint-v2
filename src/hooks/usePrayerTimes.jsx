@@ -3,24 +3,26 @@ import { toAladhanDate, todayISO } from "../utils/dateUtils";
 
 const CACHE_KEY = "prayerTimesCache";
 
-function getCached(dateISO) {
+function cacheKey(dateISO, city, country) {
+  return `${dateISO}|${city}|${country}`;
+}
+
+function getCached(dateISO, city, country) {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
-    // Cache is keyed by ISO date
-    if (data[dateISO]) return data[dateISO];
-    return null;
+    return data[cacheKey(dateISO, city, country)] || null;
   } catch {
     return null;
   }
 }
 
-function setCache(dateISO, times) {
+function setCache(dateISO, city, country, times) {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     const data = raw ? JSON.parse(raw) : {};
-    data[dateISO] = times;
+    data[cacheKey(dateISO, city, country)] = times;
     // Keep max 30 entries to avoid bloat
     const keys = Object.keys(data);
     if (keys.length > 30) {
@@ -45,12 +47,12 @@ export function usePrayerTimes({
   method = 12,
 } = {}) {
   const dateISO = date || todayISO();
-  const [times, setTimes] = useState(() => getCached(dateISO));
-  const [loading, setLoading] = useState(!getCached(dateISO));
+  const [times, setTimes] = useState(() => getCached(dateISO, city, country));
+  const [loading, setLoading] = useState(!getCached(dateISO, city, country));
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const cached = getCached(dateISO);
+    const cached = getCached(dateISO, city, country);
     if (cached) {
       setTimes(cached);
       setLoading(false);
@@ -77,7 +79,7 @@ export function usePrayerTimes({
             Isha: t.Isha,
           };
           setTimes(prayerTimes);
-          setCache(dateISO, prayerTimes);
+          setCache(dateISO, city, country, prayerTimes);
         }
       } catch (e) {
         if (!cancelled) setError(e.message);

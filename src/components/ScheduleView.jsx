@@ -89,7 +89,7 @@ function layoutBlocks(blocks) {
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-export default function ScheduleView({ tab, selectedDay, onSelectDay, onUpdateBlocks }) {
+export default function ScheduleView({ tab, selectedDay, onSelectDay, onUpdateBlocks, location, onOpenLocation }) {
   const [editingBlock, setEditingBlock] = useState(null);
   const [newBlockId, setNewBlockId] = useState(null); // id of inline-created block
   const timelineRef = useRef(null);
@@ -174,7 +174,7 @@ export default function ScheduleView({ tab, selectedDay, onSelectDay, onUpdateBl
 
   return (
     <div className="schedule-view">
-      <PrayerBanner />
+      <PrayerBanner location={location} onOpenLocation={onOpenLocation} />
       <DaySelector selectedDay={selectedDay} onSelect={onSelectDay} />
 
       <div className="timeline-scroll">
