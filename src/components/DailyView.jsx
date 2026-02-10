@@ -46,7 +46,7 @@ export default function DailyView({
   const dayKey = getDayKey(parseISO(date));
   const isToday = date === todayISO();
 
-  const { times } = usePrayerTimes({ date, city: location?.city, country: location?.country });
+  const { times } = usePrayerTimes({ date, city: location?.city, country: location?.country, lat: location?.lat, lng: location?.lng });
   const segments = useMemo(() => computeSegments(times), [times]);
   const prayerBlocks = useMemo(() => generatePrayerBlocks(times), [times]);
 

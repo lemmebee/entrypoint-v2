@@ -35,7 +35,7 @@ export default function App() {
   } = useDate();
 
   const { customTypes, customTypeColors, addCustomType, removeCustomType, mergeCustomTypes } = useCustomTypes();
-  const { location, setLocation, hasLocation } = useLocation();
+  const { location, setLocation, hasLocation, detecting, geoFailed } = useLocation();
   const [showLocationModal, setShowLocationModal] = useState(false);
 
   const {
@@ -208,7 +208,7 @@ export default function App() {
           onClose={() => setImportFile(null)}
         />
       )}
-      {(!hasLocation || showLocationModal) && (
+      {((!hasLocation && geoFailed) || showLocationModal) && (
         <LocationModal
           onSave={(loc) => { setLocation(loc); setShowLocationModal(false); }}
           onClose={hasLocation ? () => setShowLocationModal(false) : undefined}

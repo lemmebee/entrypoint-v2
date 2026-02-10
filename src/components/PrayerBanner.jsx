@@ -4,6 +4,8 @@ export default function PrayerBanner({ location, onOpenLocation }) {
   const { times, loading } = usePrayerTimes({
     city: location?.city,
     country: location?.country,
+    lat: location?.lat,
+    lng: location?.lng,
   });
 
   if (loading) return <div className="prayer-banner">Loading prayer times...</div>;

@@ -23,7 +23,6 @@ function setCache(dateISO, city, country, times) {
     const raw = localStorage.getItem(CACHE_KEY);
     const data = raw ? JSON.parse(raw) : {};
     data[cacheKey(dateISO, city, country)] = times;
-    // Keep max 30 entries to avoid bloat
     const keys = Object.keys(data);
     if (keys.length > 30) {
       keys.sort();
@@ -38,11 +37,15 @@ function setCache(dateISO, city, country, times) {
  * @param {string} [opts.date] - ISO date string (defaults to today)
  * @param {string} [opts.city] - City name (defaults to Lyon)
  * @param {string} [opts.country] - Country name (defaults to France)
+ * @param {number} [opts.lat] - Latitude (if available, used instead of city/country)
+ * @param {number} [opts.lng] - Longitude
  */
 export function usePrayerTimes({
   date,
   city = "Lyon",
   country = "France",
+  lat,
+  lng,
 } = {}) {
   const dateISO = date || todayISO();
   const [times, setTimes] = useState(() => getCached(dateISO, city, country));
@@ -63,10 +66,14 @@ export function usePrayerTimes({
     async function fetchTimes() {
       try {
         const aladhanDate = toAladhanDate(dateISO);
-        const address = `${city},${country}`;
-        const res = await fetch(
-          `https://api.aladhan.com/v1/timingsByAddress/${aladhanDate}?address=${encodeURIComponent(address)}`
-        );
+        let url;
+        if (lat != null && lng != null) {
+          url = `https://api.aladhan.com/v1/timings/${aladhanDate}?latitude=${lat}&longitude=${lng}`;
+        } else {
+          const address = `${city},${country}`;
+          url = `https://api.aladhan.com/v1/timingsByAddress/${aladhanDate}?address=${encodeURIComponent(address)}`;
+        }
+        const res = await fetch(url);
         const json = await res.json();
         if (!cancelled && json.data) {
           const t = json.data.timings;
@@ -89,7 +96,7 @@ export function usePrayerTimes({
 
     fetchTimes();
     return () => { cancelled = true; };
-  }, [dateISO, city, country]);
+  }, [dateISO, city, country, lat, lng]);
 
   return { times, loading, error };
 }
