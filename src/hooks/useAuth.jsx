@@ -1,8 +1,6 @@
 import { useState, useEffect, createContext, useContext } from "react";
 import {
   onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
   signOut,
@@ -24,19 +22,13 @@ export function AuthProvider({ children }) {
     return unsub;
   }, []);
 
-  const signin = (email, password) =>
-    signInWithEmailAndPassword(auth, email, password);
-
-  const signup = (email, password) =>
-    createUserWithEmailAndPassword(auth, email, password);
-
   const signinGoogle = () =>
     signInWithPopup(auth, new GoogleAuthProvider());
 
   const logout = () => signOut(auth);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signin, signup, signinGoogle, logout }}>
+    <AuthContext.Provider value={{ user, loading, signinGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );
