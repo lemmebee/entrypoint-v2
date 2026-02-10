@@ -38,13 +38,11 @@ function setCache(dateISO, city, country, times) {
  * @param {string} [opts.date] - ISO date string (defaults to today)
  * @param {string} [opts.city] - City name (defaults to Lyon)
  * @param {string} [opts.country] - Country name (defaults to France)
- * @param {number} [opts.method] - Calculation method (defaults to 12 = UOIF)
  */
 export function usePrayerTimes({
   date,
   city = "Lyon",
   country = "France",
-  method = 12,
 } = {}) {
   const dateISO = date || todayISO();
   const [times, setTimes] = useState(() => getCached(dateISO, city, country));
@@ -65,8 +63,9 @@ export function usePrayerTimes({
     async function fetchTimes() {
       try {
         const aladhanDate = toAladhanDate(dateISO);
+        const address = `${city},${country}`;
         const res = await fetch(
-          `https://api.aladhan.com/v1/timingsByCity/${aladhanDate}?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=${method}`
+          `https://api.aladhan.com/v1/timingsByAddress/${aladhanDate}?address=${encodeURIComponent(address)}`
         );
         const json = await res.json();
         if (!cancelled && json.data) {
@@ -90,7 +89,7 @@ export function usePrayerTimes({
 
     fetchTimes();
     return () => { cancelled = true; };
-  }, [dateISO, city, country, method]);
+  }, [dateISO, city, country]);
 
   return { times, loading, error };
 }
