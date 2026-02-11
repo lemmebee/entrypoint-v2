@@ -13,8 +13,6 @@ import DailyView from "./components/DailyView";
 import ImportModal from "./components/ImportModal";
 import ExportModal from "./components/ExportModal";
 import LocationModal from "./components/LocationModal";
-import GitHubSettingsModal from "./components/GitHubSettingsModal";
-import { loadSettings, saveSettings, githubGet, githubPut } from "./utils/githubSync";
 
 export default function App() {
   const authCtx = useAuth(); // null when no AuthProvider
@@ -39,15 +37,11 @@ export default function App() {
   const { customTypes, customTypeColors, addCustomType, removeCustomType, mergeCustomTypes } = useCustomTypes();
   const { location, setLocation, hasLocation, detecting, geoFailed } = useLocation();
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const [ghSettings, setGhSettings] = useState(() => loadSettings());
-  const [showGitHubSettings, setShowGitHubSettings] = useState(false);
-  const [syncing, setSyncing] = useState(null);
-  const [syncError, setSyncError] = useState(null);
 
   const {
     sections: pipelineSections,
     addSection, updateSection, deleteSection, reorderSections,
-    toggleCollapse, addItem, updateItem, deleteItem, moveItem, reorderItems, mergeSections,
+    toggleCollapse, addItem, updateItem, deleteItem, mergeSections,
   } = usePipelines(user?.uid || null);
 
   const fileRef = useRef(null);
@@ -102,35 +96,6 @@ export default function App() {
     setView("calendar");
   }, []);
 
-  const handleGhSave = useCallback((s) => {
-    saveSettings(s);
-    setGhSettings(s);
-    setShowGitHubSettings(false);
-  }, []);
-
-  const handlePush = useCallback(async () => {
-    if (!ghSettings) { setShowGitHubSettings(true); return; }
-    setSyncing("push"); setSyncError(null);
-    try {
-      const existing = await githubGet(ghSettings);
-      const json = { version: 2, plans, customTypes, pipelines: pipelineSections };
-      await githubPut(ghSettings, json, existing?.sha || null);
-    } catch (e) { setSyncError(e.message); }
-    setSyncing(null);
-  }, [ghSettings, plans, customTypes, pipelineSections]);
-
-  const handlePull = useCallback(async () => {
-    if (!ghSettings) { setShowGitHubSettings(true); return; }
-    setSyncing("pull"); setSyncError(null);
-    try {
-      const result = await githubGet(ghSettings);
-      if (!result) throw new Error("File not found in repo");
-      const { content: data } = result;
-      handleImportConfirm(data.plans || [], data.customTypes || [], data.pipelines || []);
-    } catch (e) { setSyncError(e.message); }
-    setSyncing(null);
-  }, [ghSettings, handleImportConfirm]);
-
   const datePlanResolved = getPlanForDate(selectedDate);
   const dailyPlan = (activePlan && datePlanResolved?.id === activePlan.id)
     ? activePlan
@@ -152,13 +117,6 @@ export default function App() {
           <div className="header-quote">"While enjoying every single day on the way."</div>
         </div>
         <div className="header-actions">
-          <button className="header-btn" onClick={handlePush} disabled={!!syncing} title="Push to GitHub">
-            {syncing === "push" ? "Pushing..." : "Push"}
-          </button>
-          <button className="header-btn" onClick={handlePull} disabled={!!syncing} title="Pull from GitHub">
-            {syncing === "pull" ? "Pulling..." : "Pull"}
-          </button>
-          <button className="header-btn" onClick={() => setShowGitHubSettings(true)} title="GitHub Settings">GH</button>
           <button className="header-btn" onClick={() => setShowExport(true)} title="Export">Export</button>
           <button className="header-btn" onClick={() => fileRef.current?.click()} title="Import">Import</button>
           <input ref={fileRef} type="file" accept=".json" hidden onChange={(e) => {
@@ -168,7 +126,6 @@ export default function App() {
           {logout && <button className="logout-btn" onClick={logout}>Logout</button>}
         </div>
       </header>
-      {syncError && <div className="sync-error">{syncError}</div>}
 
       <PlanSidebar
         plans={plans}
@@ -214,8 +171,6 @@ export default function App() {
           onAddItem={addItem}
           onUpdateItem={updateItem}
           onDeleteItem={deleteItem}
-          onMoveItem={moveItem}
-          onReorderItems={reorderItems}
         />
       )}
 
@@ -251,13 +206,6 @@ export default function App() {
           existingPipelines={pipelineSections}
           onConfirm={handleImportConfirm}
           onClose={() => setImportFile(null)}
-        />
-      )}
-      {showGitHubSettings && (
-        <GitHubSettingsModal
-          settings={ghSettings}
-          onSave={handleGhSave}
-          onClose={() => setShowGitHubSettings(false)}
         />
       )}
       {((!hasLocation && geoFailed) || showLocationModal) && (

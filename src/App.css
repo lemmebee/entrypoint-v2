@@ -133,26 +133,9 @@ body {
   transition: all 0.15s;
 }
 
-.header-btn:hover:not(:disabled) {
+.header-btn:hover {
   border-color: rgba(255,255,255,0.15);
   color: #94a3b8;
-}
-
-.header-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.sync-error {
-  font-size: 11px;
-  color: #dc2626;
-  padding: 6px 10px;
-  background: rgba(220, 38, 38, 0.08);
-  border-radius: 6px;
-  margin-bottom: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .logout-btn {
@@ -420,19 +403,11 @@ body {
   transition: all 0.15s;
 }
 
-.day-btn.today {
-  border-color: #dc2626;
-}
-
 .day-btn.active {
   background: rgba(255,255,255,0.10);
   border-color: rgba(255,255,255,0.20);
   color: #f0f0f5;
   font-weight: 600;
-}
-
-.day-btn.today.active {
-  border-color: #dc2626;
 }
 
 /* === Timeline === */
@@ -1394,19 +1369,6 @@ select.modal-input option {
   margin-left: auto;
 }
 
-.block-total-badge {
-  font-size: 8px;
-  background: rgba(255,255,255,0.10);
-  color: #c8c8d0;
-  padding: 1px 5px;
-  border-radius: 4px;
-  flex-shrink: 0;
-  margin-left: auto;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-shadow: 0 0 4px rgba(0,0,0,0.9);
-}
-
 /* === Task Editor (in BlockEditor modal) === */
 .task-list-editor {
   display: flex;
@@ -1547,42 +1509,6 @@ select.modal-input option {
   border-radius: 6px;
   transition: background 0.15s;
   position: relative;
-  background: var(--bg-pipeline-item, transparent);
-}
-
-.pipeline-item.dragging {
-  opacity: 0.3;
-}
-
-.pipeline-item-overlay {
-  background: #1e1e2e;
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  transform: scale(1.03);
-  padding: 6px 4px;
-}
-
-.pipeline-item-drag-handle {
-  background: none;
-  border: none;
-  color: #475569;
-  cursor: grab;
-  padding: 2px 2px;
-  font-size: 14px;
-  line-height: 1;
-  flex-shrink: 0;
-  margin-top: 2px;
-  touch-action: none;
-  transition: color 0.15s;
-}
-
-.pipeline-item-drag-handle:hover {
-  color: #8b5cf6;
-}
-
-.pipeline-item-drag-handle:active {
-  cursor: grabbing;
 }
 
 .pipeline-item:hover {
