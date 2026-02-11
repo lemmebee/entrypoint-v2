@@ -112,7 +112,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
         holdTimer.current = null;
         drag.current = { y: startY, mode: "move", moved: false, touch: true };
         elRef.current?.setPointerCapture(pid);
-        navigator.vibrate?.(20);
+
       }, HOLD_MS) };
     } else {
       drag.current = { y: e.clientY, mode: "move", moved: false, touch: false };
@@ -189,7 +189,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
         holdTimer.current = null;
         drag.current = { y: startY, mode: edge, moved: true, touch: true };
         e.target?.setPointerCapture(pid);
-        navigator.vibrate?.(20);
+
       }, HOLD_MS) };
     } else {
       drag.current = { y: e.clientY, mode: edge, moved: true, touch: false };
