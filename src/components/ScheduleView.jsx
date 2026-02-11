@@ -29,18 +29,18 @@ function snapMin(m) {
 function layoutBlocks(blocks) {
   if (!blocks.length) return [];
 
-  // build intervals: [startMin, endMin]
+  const minVisualDur = (MIN_BLOCK_H / HOUR_HEIGHT) * 60;
+
   const items = blocks.map((b) => {
     const s = timeToMin(b.time);
     const dur = b.duration || DEFAULT_DUR;
-    return { ...b, startMin: s, endMin: s + dur };
+    const visualEnd = s + Math.max(dur, minVisualDur);
+    return { ...b, startMin: s, endMin: s + dur, visualEnd };
   });
 
-  // sort by start, then by duration desc (wider blocks first)
   items.sort((a, b) => a.startMin - b.startMin || (b.endMin - b.startMin) - (a.endMin - a.startMin));
 
-  // greedy column assignment
-  const columns = []; // each column = end time of last block in that column
+  const columns = [];
   const result = [];
 
   for (const item of items) {
@@ -55,12 +55,10 @@ function layoutBlocks(blocks) {
       placed = columns.length;
       columns.push(0);
     }
-    columns[placed] = item.endMin;
+    columns[placed] = item.visualEnd;
     result.push({ ...item, col: placed });
   }
 
-  // compute totalCols for each overlap group
-  // group = connected set of overlapping blocks
   const groups = [];
   let group = [];
   let groupEnd = 0;
@@ -68,11 +66,11 @@ function layoutBlocks(blocks) {
   for (const item of result) {
     if (group.length === 0 || item.startMin < groupEnd) {
       group.push(item);
-      groupEnd = Math.max(groupEnd, item.endMin);
+      groupEnd = Math.max(groupEnd, item.visualEnd);
     } else {
       groups.push(group);
       group = [item];
-      groupEnd = item.endMin;
+      groupEnd = item.visualEnd;
     }
   }
   if (group.length) groups.push(group);

@@ -62,32 +62,27 @@ export default function DailyView({
     });
   }, [rawBlocks, segments]);
 
-  // Layout user blocks
-  const userBlocks = useMemo(() => {
+  // Unified layout: prayer + user blocks together so they don't overlap
+  const { userBlocks, positionedPrayers } = useMemo(() => {
     const withDur = resolvedBlocks.map((b) => ({
       ...b,
       duration: b.duration || DEFAULT_DUR,
     }));
-    const laid = layoutBlocks(withDur);
-    return laid.map((b) => ({
-      ...b,
-      top: (b.startMin / 60) * HOUR_HEIGHT,
-      height: Math.max((b.duration / 60) * HOUR_HEIGHT, MIN_BLOCK_H),
-    }));
-  }, [resolvedBlocks]);
-
-  // Prayer blocks positioned
-  const positionedPrayers = useMemo(() => {
-    return prayerBlocks.map((b) => {
-      const startMin = timeToMin(b.time);
-      return {
+    const allBlocks = [...prayerBlocks, ...withDur];
+    const laid = layoutBlocks(allBlocks, { hourHeight: HOUR_HEIGHT, minBlockH: MIN_BLOCK_H });
+    const users = [];
+    const prayers = [];
+    for (const b of laid) {
+      const positioned = {
         ...b,
-        startMin,
-        top: (startMin / 60) * HOUR_HEIGHT,
+        top: (b.startMin / 60) * HOUR_HEIGHT,
         height: Math.max((b.duration / 60) * HOUR_HEIGHT, MIN_BLOCK_H),
       };
-    });
-  }, [prayerBlocks]);
+      if (b.isPrayer) prayers.push(positioned);
+      else users.push(positioned);
+    }
+    return { userBlocks: users, positionedPrayers: prayers };
+  }, [resolvedBlocks, prayerBlocks]);
 
   // Segment bands
   const segmentBands = useMemo(() => {
@@ -267,6 +262,8 @@ export default function DailyView({
               block={block}
               top={block.top}
               height={block.height}
+              col={block.col}
+              totalCols={block.totalCols}
               isPrayer
               onEdit={() => {}}
               onDelete={() => {}}

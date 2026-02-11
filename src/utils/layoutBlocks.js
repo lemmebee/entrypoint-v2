@@ -23,14 +23,24 @@ export function snapMin(m, snap = 5) {
  * Compute overlap columns for a list of blocks.
  * Each block must have { time, duration }.
  * Returns blocks with added { startMin, endMin, col, totalCols }.
+ *
+ * When hourHeight and minBlockH are provided, uses visual (pixel-based)
+ * overlap detection so blocks with enforced minimum heights are placed
+ * side-by-side instead of stacking on top of each other.
  */
-export function layoutBlocks(blocks) {
+export function layoutBlocks(blocks, { hourHeight = 0, minBlockH = 0 } = {}) {
   if (!blocks.length) return [];
+
+  // Minimum visual duration in minutes (e.g. 24px at 60px/hr = 24 min)
+  const minVisualDur = (hourHeight > 0 && minBlockH > 0)
+    ? (minBlockH / hourHeight) * 60
+    : 0;
 
   const items = blocks.map((b) => {
     const s = timeToMin(b.time);
     const dur = b.duration || DEFAULT_DUR;
-    return { ...b, startMin: s, endMin: s + dur };
+    const visualEnd = minVisualDur ? s + Math.max(dur, minVisualDur) : s + dur;
+    return { ...b, startMin: s, endMin: s + dur, visualEnd };
   });
 
   items.sort((a, b) => a.startMin - b.startMin || (b.endMin - b.startMin) - (a.endMin - a.startMin));
@@ -50,7 +60,7 @@ export function layoutBlocks(blocks) {
       placed = columns.length;
       columns.push(0);
     }
-    columns[placed] = item.endMin;
+    columns[placed] = item.visualEnd;
     result.push({ ...item, col: placed });
   }
 
@@ -62,11 +72,11 @@ export function layoutBlocks(blocks) {
   for (const item of result) {
     if (group.length === 0 || item.startMin < groupEnd) {
       group.push(item);
-      groupEnd = Math.max(groupEnd, item.endMin);
+      groupEnd = Math.max(groupEnd, item.visualEnd);
     } else {
       groups.push(group);
       group = [item];
-      groupEnd = item.endMin;
+      groupEnd = item.visualEnd;
     }
   }
   if (group.length) groups.push(group);

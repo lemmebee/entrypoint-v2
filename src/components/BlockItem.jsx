@@ -32,12 +32,9 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
   const endTime = minToTime(Math.min(startMin + dur, 24 * 60));
   const startDisplay = block.time;
 
-  // Prayer blocks: full width, no columns
   const totalWidth = `calc(100% - ${BLOCK_LEFT}px - ${BLOCK_RIGHT}px)`;
-  const colWidth = isPrayer ? totalWidth : `calc((${totalWidth}) / ${totalCols})`;
-  const leftPos = isPrayer
-    ? `${BLOCK_LEFT}px`
-    : `calc(${BLOCK_LEFT}px + (${totalWidth}) * ${col} / ${totalCols})`;
+  const colWidth = `calc((${totalWidth}) / ${totalCols})`;
+  const leftPos = `calc(${BLOCK_LEFT}px + (${totalWidth}) * ${col} / ${totalCols})`;
 
   const applyVisuals = useCallback((delta, mode) => {
     const el = elRef.current;
@@ -49,7 +46,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
       el.style.top = `${vTop}px`;
       el.style.left = `${BLOCK_LEFT}px`;
       el.style.width = `calc(100% - ${BLOCK_LEFT}px - ${BLOCK_RIGHT}px)`;
-      el.style.zIndex = "100";
+      el.style.zIndex = "10000";
       el.style.boxShadow = "0 4px 16px rgba(0,0,0,0.5)";
       el.style.opacity = "0.85";
       el.style.cursor = "grabbing";
@@ -60,7 +57,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
       const vH = Math.max(height - delta, (MIN_DUR / 60) * HOUR_HEIGHT);
       el.style.top = `${vTop}px`;
       el.style.height = `${Math.max(vH, 24)}px`;
-      el.style.zIndex = "100";
+      el.style.zIndex = "10000";
       el.style.boxShadow = "0 4px 16px rgba(0,0,0,0.5)";
       el.style.opacity = "0.85";
       const liveStart = snapMin(startMin + (delta / HOUR_HEIGHT) * 60);
@@ -68,7 +65,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
     } else if (mode === "bottom") {
       const vH = Math.max(height + delta, (MIN_DUR / 60) * HOUR_HEIGHT);
       el.style.height = `${Math.max(vH, 24)}px`;
-      el.style.zIndex = "100";
+      el.style.zIndex = "10000";
       el.style.boxShadow = "0 4px 16px rgba(0,0,0,0.5)";
       el.style.opacity = "0.85";
       const liveEnd = startMin + Math.max(MIN_DUR, snapMin(dur + (delta / HOUR_HEIGHT) * 60));
@@ -83,17 +80,19 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
     el.style.height = `${Math.max(height, 24)}px`;
     el.style.left = leftPos;
     el.style.width = colWidth;
-    el.style.zIndex = isPrayer ? "10" : "1";
+    el.style.zIndex = isPrayer ? "10" : String(Math.ceil(top) + 1);
     el.style.boxShadow = "none";
     el.style.opacity = "1";
     el.style.cursor = isPrayer ? "default" : "pointer";
-    if (timeRef.current) timeRef.current.textContent = `${startDisplay} \u2013 ${endTime}`;
+    const compact = height < 36;
+    if (timeRef.current) timeRef.current.textContent = compact ? startDisplay : `${startDisplay} \u2013 ${endTime}`;
   }, [top, height, leftPos, colWidth, startDisplay, endTime, isPrayer]);
 
   // Re-sync time text after React re-render (textContent from drag breaks React's DOM ownership)
   useEffect(() => {
-    if (timeRef.current) timeRef.current.textContent = `${startDisplay} \u2013 ${endTime}`;
-  }, [startDisplay, endTime]);
+    const compact = height < 36;
+    if (timeRef.current) timeRef.current.textContent = compact ? startDisplay : `${startDisplay} \u2013 ${endTime}`;
+  }, [startDisplay, endTime, height]);
 
   // --- pointer handlers (disabled for prayer blocks) ---
   const onPointerDown = (e) => {
@@ -181,7 +180,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
           right: "auto",
           background: isPrayer ? "rgba(34, 139, 34, 0.10)" : colors.bg,
           borderLeft: `3px solid ${isPrayer ? "#2d8a4e" : colors.border}`,
-          zIndex: isPrayer ? 10 : 1,
+          zIndex: isPrayer ? 10 : Math.ceil(top) + 1,
           cursor: isPrayer ? "default" : "pointer",
           transition: "box-shadow 0.15s",
         }}
@@ -209,7 +208,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
 
         {isCompact ? (
           <div className="block-compact">
-            <span ref={timeRef} className="block-time-sm">{startDisplay} &ndash; {endTime}</span>
+            <span ref={timeRef} className="block-time-sm">{startDisplay}</span>
             <span className="block-icon-sm">{block.icon}</span>
             <span className="block-act-sm" style={{ color: textColor, fontWeight: fw }}>{block.activity}</span>
             {hasTasks && <span className="block-task-badge">{tasksDone}/{block.tasks.length}</span>}
