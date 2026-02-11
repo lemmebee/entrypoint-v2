@@ -21,6 +21,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
   const timeRef = useRef(null);
   const drag = useRef(null);
   const raf = useRef(null);
+  const holdTimer = useRef(null);
   const [ctxMenu, setCtxMenu] = useState(null);
 
   const colors = typeColors[block.type] || extraTypeColors[block.type] || typeColors.neutral;
@@ -95,13 +96,33 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
   }, [startDisplay, endTime, height]);
 
   // --- pointer handlers (disabled for prayer blocks) ---
+  // Touch requires long-press (300ms) before drag activates to avoid hijacking scroll.
+  const HOLD_MS = 300;
+
   const onPointerDown = (e) => {
     if (isPrayer || e.button !== 0) return;
-    drag.current = { y: e.clientY, mode: "move", moved: false };
-    elRef.current.setPointerCapture(e.pointerId);
+    const isTouch = e.pointerType === "touch";
+    if (isTouch) {
+      // Start hold timer — don't capture yet
+      const pid = e.pointerId;
+      holdTimer.current = setTimeout(() => {
+        holdTimer.current = null;
+        drag.current = { y: e.clientY, mode: "move", moved: false, touch: true };
+        elRef.current?.setPointerCapture(pid);
+      }, HOLD_MS);
+    } else {
+      drag.current = { y: e.clientY, mode: "move", moved: false, touch: false };
+      elRef.current.setPointerCapture(e.pointerId);
+    }
   };
 
   const onPointerMove = (e) => {
+    // If hold timer is pending and finger moved, cancel — it's a scroll
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+      return;
+    }
     if (!drag.current) return;
     const delta = e.clientY - drag.current.y;
     if (!drag.current.moved && Math.abs(delta) > 4) drag.current.moved = true;
@@ -111,6 +132,14 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
   };
 
   const onPointerUp = (e) => {
+    // Cancel hold timer if still pending
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+      // Touch tap without hold — open editor
+      if (e.pointerType === "touch" && !isPrayer) onEdit(block);
+      return;
+    }
     if (!drag.current) return;
     const delta = e.clientY - drag.current.y;
     const { mode, moved } = drag.current;
@@ -137,12 +166,27 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
     }
   };
 
+  const onPointerCancel = () => {
+    if (holdTimer.current) { clearTimeout(holdTimer.current); holdTimer.current = null; }
+    if (drag.current) { drag.current = null; resetVisuals(); }
+  };
+
   const onResizeDown = (edge) => (e) => {
     if (isPrayer) return;
     e.stopPropagation();
     if (e.button !== 0) return;
-    drag.current = { y: e.clientY, mode: edge, moved: true };
-    e.target.setPointerCapture(e.pointerId);
+    const isTouch = e.pointerType === "touch";
+    if (isTouch) {
+      const pid = e.pointerId;
+      holdTimer.current = setTimeout(() => {
+        holdTimer.current = null;
+        drag.current = { y: e.clientY, mode: edge, moved: true, touch: true };
+        e.target?.setPointerCapture(pid);
+      }, HOLD_MS);
+    } else {
+      drag.current = { y: e.clientY, mode: edge, moved: true, touch: false };
+      e.target.setPointerCapture(e.pointerId);
+    }
   };
 
   // --- context menu ---
@@ -187,6 +231,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
         onContextMenu={handleContextMenu}
       >
         {!isPrayer && (
