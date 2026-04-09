@@ -78,6 +78,33 @@ function usePipelinesLocal() {
     ));
   }, [persist]);
 
+  const moveItem = useCallback((fromSectionId, toSectionId, itemId, newIndex) => {
+    persist((prev) => {
+      const fromSection = prev.find((s) => s.id === fromSectionId);
+      if (!fromSection) return prev;
+      const item = (fromSection.items || []).find((it) => it.id === itemId);
+      if (!item) return prev;
+      return prev.map((s) => {
+        if (s.id === fromSectionId && fromSectionId === toSectionId) {
+          const items = (s.items || []).filter((it) => it.id !== itemId);
+          items.splice(newIndex, 0, item);
+          return { ...s, items };
+        }
+        if (s.id === fromSectionId) return { ...s, items: (s.items || []).filter((it) => it.id !== itemId) };
+        if (s.id === toSectionId) {
+          const items = [...(s.items || [])];
+          items.splice(newIndex, 0, item);
+          return { ...s, items };
+        }
+        return s;
+      });
+    });
+  }, [persist]);
+
+  const reorderItems = useCallback((sectionId, reorderedItems) => {
+    persist((prev) => prev.map((s) => (s.id === sectionId ? { ...s, items: reorderedItems } : s)));
+  }, [persist]);
+
   const mergeSections = useCallback((newSections) => {
     const existingIds = new Set(sections.map((s) => s.id));
     const toAdd = newSections.filter((s) => !existingIds.has(s.id));
@@ -88,7 +115,7 @@ function usePipelinesLocal() {
   return {
     sections, loading: false,
     addSection, updateSection, deleteSection, reorderSections,
-    toggleCollapse, addItem, updateItem, deleteItem, mergeSections,
+    toggleCollapse, addItem, updateItem, deleteItem, moveItem, reorderItems, mergeSections,
   };
 }
 
@@ -158,6 +185,37 @@ function usePipelinesFirestore(uid) {
     });
   }, [uid, sections]);
 
+  const moveItem = useCallback(async (fromSectionId, toSectionId, itemId, newIndex) => {
+    const fromSection = sections.find((s) => s.id === fromSectionId);
+    if (!fromSection) return;
+    const item = (fromSection.items || []).find((it) => it.id === itemId);
+    if (!item) return;
+    if (fromSectionId === toSectionId) {
+      const items = (fromSection.items || []).filter((it) => it.id !== itemId);
+      items.splice(newIndex, 0, item);
+      setSections((prev) => prev.map((s) => (s.id === fromSectionId ? { ...s, items } : s)));
+      await updateDoc(doc(db, "users", uid, "pipelines", fromSectionId), { items });
+    } else {
+      const toSection = sections.find((s) => s.id === toSectionId);
+      if (!toSection) return;
+      const fromItems = (fromSection.items || []).filter((it) => it.id !== itemId);
+      const toItems = [...(toSection.items || [])];
+      toItems.splice(newIndex, 0, item);
+      setSections((prev) => prev.map((s) => {
+        if (s.id === fromSectionId) return { ...s, items: fromItems };
+        if (s.id === toSectionId) return { ...s, items: toItems };
+        return s;
+      }));
+      await updateDoc(doc(db, "users", uid, "pipelines", fromSectionId), { items: fromItems });
+      await updateDoc(doc(db, "users", uid, "pipelines", toSectionId), { items: toItems });
+    }
+  }, [uid, sections]);
+
+  const reorderItems = useCallback(async (sectionId, reorderedItems) => {
+    setSections((prev) => prev.map((s) => (s.id === sectionId ? { ...s, items: reorderedItems } : s)));
+    await updateDoc(doc(db, "users", uid, "pipelines", sectionId), { items: reorderedItems });
+  }, [uid]);
+
   const mergeSections = useCallback(async (newSections) => {
     const existingIds = new Set(sections.map((s) => s.id));
     const toAdd = newSections.filter((s) => !existingIds.has(s.id));
@@ -171,7 +229,7 @@ function usePipelinesFirestore(uid) {
   return {
     sections, loading,
     addSection, updateSection, deleteSection, reorderSections,
-    toggleCollapse, addItem, updateItem, deleteItem, mergeSections,
+    toggleCollapse, addItem, updateItem, deleteItem, moveItem, reorderItems, mergeSections,
   };
 }
 
