@@ -56,7 +56,7 @@ export default function BlockEditor({ block, defaultTime, segments, onSave, onDe
   const computeDuration = () => {
     const [sh, sm] = time.split(":").map(Number);
     const [eh, em] = endTime.split(":").map(Number);
-    return Math.max(15, (eh * 60 + em) - (sh * 60 + sm));
+    return Math.max(5, (eh * 60 + em) - (sh * 60 + sm));
   };
 
   const handleSubmit = (e) => {

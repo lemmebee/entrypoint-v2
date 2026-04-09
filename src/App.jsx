@@ -41,7 +41,7 @@ export default function App() {
   const {
     sections: pipelineSections,
     addSection, updateSection, deleteSection, reorderSections,
-    toggleCollapse, addItem, updateItem, deleteItem, mergeSections,
+    toggleCollapse, addItem, updateItem, deleteItem, moveItem, reorderItems, mergeSections,
   } = usePipelines(user?.uid || null);
 
   const fileRef = useRef(null);
@@ -171,6 +171,8 @@ export default function App() {
           onAddItem={addItem}
           onUpdateItem={updateItem}
           onDeleteItem={deleteItem}
+          onMoveItem={moveItem}
+          onReorderItems={reorderItems}
         />
       )}
 

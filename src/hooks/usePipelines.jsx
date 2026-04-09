@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc,
   query, orderBy,
@@ -123,11 +123,13 @@ function usePipelinesLocal() {
 function usePipelinesFirestore(uid) {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const writingRef = useRef(0);
 
   useEffect(() => {
     if (!uid) { setLoading(false); return; }
     const q = query(collection(db, "users", uid, "pipelines"), orderBy("order"));
     const unsub = onSnapshot(q, (snap) => {
+      if (writingRef.current > 0) return; // skip while optimistic writes in-flight
       setSections(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setLoading(false);
     }, () => setLoading(false));
@@ -190,30 +192,40 @@ function usePipelinesFirestore(uid) {
     if (!fromSection) return;
     const item = (fromSection.items || []).find((it) => it.id === itemId);
     if (!item) return;
-    if (fromSectionId === toSectionId) {
-      const items = (fromSection.items || []).filter((it) => it.id !== itemId);
-      items.splice(newIndex, 0, item);
-      setSections((prev) => prev.map((s) => (s.id === fromSectionId ? { ...s, items } : s)));
-      await updateDoc(doc(db, "users", uid, "pipelines", fromSectionId), { items });
-    } else {
-      const toSection = sections.find((s) => s.id === toSectionId);
-      if (!toSection) return;
-      const fromItems = (fromSection.items || []).filter((it) => it.id !== itemId);
-      const toItems = [...(toSection.items || [])];
-      toItems.splice(newIndex, 0, item);
-      setSections((prev) => prev.map((s) => {
-        if (s.id === fromSectionId) return { ...s, items: fromItems };
-        if (s.id === toSectionId) return { ...s, items: toItems };
-        return s;
-      }));
-      await updateDoc(doc(db, "users", uid, "pipelines", fromSectionId), { items: fromItems });
-      await updateDoc(doc(db, "users", uid, "pipelines", toSectionId), { items: toItems });
-    }
+    writingRef.current++;
+    try {
+      if (fromSectionId === toSectionId) {
+        const items = (fromSection.items || []).filter((it) => it.id !== itemId);
+        items.splice(newIndex, 0, item);
+        setSections((prev) => prev.map((s) => (s.id === fromSectionId ? { ...s, items } : s)));
+        await updateDoc(doc(db, "users", uid, "pipelines", fromSectionId), { items });
+      } else {
+        const toSection = sections.find((s) => s.id === toSectionId);
+        if (!toSection) { writingRef.current--; return; }
+        const fromItems = (fromSection.items || []).filter((it) => it.id !== itemId);
+        const toItems = [...(toSection.items || [])];
+        toItems.splice(newIndex, 0, item);
+        setSections((prev) => prev.map((s) => {
+          if (s.id === fromSectionId) return { ...s, items: fromItems };
+          if (s.id === toSectionId) return { ...s, items: toItems };
+          return s;
+        }));
+        await updateDoc(doc(db, "users", uid, "pipelines", fromSectionId), { items: fromItems });
+        await updateDoc(doc(db, "users", uid, "pipelines", toSectionId), { items: toItems });
+      }
+    } catch (err) {
+      console.error("moveItem write failed:", err);
+    } finally { writingRef.current--; }
   }, [uid, sections]);
 
   const reorderItems = useCallback(async (sectionId, reorderedItems) => {
+    writingRef.current++;
     setSections((prev) => prev.map((s) => (s.id === sectionId ? { ...s, items: reorderedItems } : s)));
-    await updateDoc(doc(db, "users", uid, "pipelines", sectionId), { items: reorderedItems });
+    try {
+      await updateDoc(doc(db, "users", uid, "pipelines", sectionId), { items: reorderedItems });
+    } catch (err) {
+      console.error("reorderItems write failed:", err);
+    } finally { writingRef.current--; }
   }, [uid]);
 
   const mergeSections = useCallback(async (newSections) => {

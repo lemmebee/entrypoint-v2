@@ -16,12 +16,20 @@ function minToTime(m) {
   return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
 
-export default function BlockItem({ block, top, height, col = 0, totalCols = 1, isNew, isPrayer, extraTypeColors = {}, onEdit, onDelete, onTimeChange, onResize, onToggleTask }) {
+function fmtDur(m) {
+  m = Math.round(m);
+  if (m <= 0) return null;
+  return m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}` : `${m}m`;
+}
+
+export default function BlockItem({ block, top, height, col = 0, totalCols = 1, isNew, isPrayer, extraTypeColors = {}, onEdit, onDelete, onCopy, onTimeChange, onResize, onToggleTask }) {
   const elRef = useRef(null);
   const timeRef = useRef(null);
+  const durRef = useRef(null);
   const drag = useRef(null);
   const raf = useRef(null);
   const holdTimer = useRef(null);
+  const preventScroll = useRef(null);
   const [ctxMenu, setCtxMenu] = useState(null);
 
   const colors = typeColors[block.type] || extraTypeColors[block.type] || typeColors.neutral;
@@ -29,7 +37,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
   const fw = (block.type === "prayer" || isPrayer) ? 600 : 400;
 
   const startMin = (top / HOUR_HEIGHT) * 60;
-  const dur = (height / HOUR_HEIGHT) * 60;
+  const dur = block.duration || (height / HOUR_HEIGHT) * 60;
   const endTime = minToTime(Math.min(startMin + dur, 24 * 60));
   const startDisplay = block.time;
 
@@ -62,15 +70,19 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
       el.style.boxShadow = "0 4px 16px rgba(0,0,0,0.5)";
       el.style.opacity = "0.85";
       const liveStart = snapMin(startMin + (delta / HOUR_HEIGHT) * 60);
+      const liveDur = Math.max(MIN_DUR, Math.round((startMin + dur - liveStart) / SNAP) * SNAP);
       if (timeEl) timeEl.textContent = `${minToTime(liveStart)} \u2013 ${minToTime(Math.min(startMin + dur, 1440))}`;
+      if (durRef.current) durRef.current.textContent = fmtDur(liveDur) || "";
     } else if (mode === "bottom") {
       const vH = Math.max(height + delta, (MIN_DUR / 60) * HOUR_HEIGHT);
       el.style.height = `${Math.max(vH, 24)}px`;
       el.style.zIndex = "10000";
       el.style.boxShadow = "0 4px 16px rgba(0,0,0,0.5)";
       el.style.opacity = "0.85";
-      const liveEnd = startMin + Math.max(MIN_DUR, snapMin(dur + (delta / HOUR_HEIGHT) * 60));
+      const liveDur = Math.max(MIN_DUR, snapMin(dur + (delta / HOUR_HEIGHT) * 60));
+      const liveEnd = startMin + liveDur;
       if (timeEl) timeEl.textContent = `${minToTime(startMin)} \u2013 ${minToTime(Math.min(liveEnd, 1440))}`;
+      if (durRef.current) durRef.current.textContent = fmtDur(liveDur) || "";
     }
   }, [top, height, startMin, dur]);
 
@@ -87,13 +99,15 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
     el.style.cursor = isPrayer ? "default" : "pointer";
     const compact = height < 36;
     if (timeRef.current) timeRef.current.textContent = compact ? startDisplay : `${startDisplay} \u2013 ${endTime}`;
-  }, [top, height, leftPos, colWidth, startDisplay, endTime, isPrayer]);
+    if (durRef.current) durRef.current.textContent = fmtDur(dur) || "";
+  }, [top, height, leftPos, colWidth, startDisplay, endTime, isPrayer, dur]);
 
-  // Re-sync time text after React re-render (textContent from drag breaks React's DOM ownership)
+  // Re-sync text after React re-render (textContent from drag breaks React's DOM ownership)
   useEffect(() => {
     const compact = height < 36;
     if (timeRef.current) timeRef.current.textContent = compact ? startDisplay : `${startDisplay} \u2013 ${endTime}`;
-  }, [startDisplay, endTime, height]);
+    if (durRef.current) durRef.current.textContent = fmtDur(dur) || "";
+  }, [startDisplay, endTime, height, dur]);
 
   // --- pointer handlers (disabled for prayer blocks) ---
   // Touch requires long-press (300ms) before drag activates to avoid hijacking scroll.
@@ -110,9 +124,12 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
       const startY = e.clientY;
       holdTimer.current = { startY, tid: setTimeout(() => {
         holdTimer.current = null;
+        // Prevent browser from scrolling during drag (must be non-passive)
+        const stop = (ev) => ev.preventDefault();
+        document.addEventListener("touchmove", stop, { passive: false });
+        preventScroll.current = stop;
         drag.current = { y: startY, mode: "move", moved: false, touch: true };
         elRef.current?.setPointerCapture(pid);
-
       }, HOLD_MS) };
     } else {
       drag.current = { y: e.clientY, mode: "move", moved: false, touch: false };
@@ -147,6 +164,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
       return;
     }
     if (!drag.current) return;
+    if (preventScroll.current) { document.removeEventListener("touchmove", preventScroll.current); preventScroll.current = null; }
     const delta = e.clientY - drag.current.y;
     const { mode, moved } = drag.current;
     drag.current = null;
@@ -175,6 +193,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
   const onPointerCancel = () => {
     if (holdTimer.current) { clearTimeout(holdTimer.current.tid); holdTimer.current = null; }
     if (drag.current) { drag.current = null; resetVisuals(); }
+    if (preventScroll.current) { document.removeEventListener("touchmove", preventScroll.current); preventScroll.current = null; }
   };
 
   const onResizeDown = (edge) => (e) => {
@@ -187,9 +206,11 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
       const startY = e.clientY;
       holdTimer.current = { startY, tid: setTimeout(() => {
         holdTimer.current = null;
+        const stop = (ev) => ev.preventDefault();
+        document.addEventListener("touchmove", stop, { passive: false });
+        preventScroll.current = stop;
         drag.current = { y: startY, mode: edge, moved: true, touch: true };
         e.target?.setPointerCapture(pid);
-
       }, HOLD_MS) };
     } else {
       drag.current = { y: e.clientY, mode: edge, moved: true, touch: false };
@@ -218,6 +239,8 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
   const tasksDone = hasTasks ? block.tasks.filter((t) => t.done).length : 0;
   const isCompact = height < 36;
   const showTasks = hasTasks && height >= 60;
+
+  const durLabel = !isPrayer ? fmtDur(dur) : null;
 
   return (
     <>
@@ -264,7 +287,9 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
             <span ref={timeRef} className="block-time-sm">{startDisplay}</span>
             <span className="block-icon-sm">{block.icon}</span>
             <span className="block-act-sm" style={{ color: textColor, fontWeight: fw }}>{block.activity}</span>
+
             {hasTasks && <span className="block-task-badge">{tasksDone}/{block.tasks.length}</span>}
+            {durLabel && <span ref={durRef} className="block-duration">{durLabel}</span>}
           </div>
         ) : (
           <>
@@ -272,7 +297,9 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
             <div className="block-row">
               <span className="block-icon-sm">{block.icon}</span>
               <span className="block-act" style={{ color: textColor, fontWeight: fw }}>{block.activity}</span>
+
               {hasTasks && !showTasks && <span className="block-task-badge">{tasksDone}/{block.tasks.length}</span>}
+              {durLabel && <span ref={durRef} className="block-duration">{durLabel}</span>}
             </div>
             {showTasks && (
               <div className="block-tasks" onWheel={(e) => {
@@ -307,6 +334,7 @@ export default function BlockItem({ block, top, height, col = 0, totalCols = 1, 
           <div className="context-overlay" onClick={(e) => { e.stopPropagation(); closeCtx(); }} />
           <div className="context-menu" style={{ top: ctxMenu.y, left: ctxMenu.x }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => { closeCtx(); onEdit(block); }}>Edit</button>
+            <button onClick={() => { closeCtx(); onCopy?.(block); }}>Copy</button>
             <button className="danger" onClick={() => { closeCtx(); onDelete(block.id); }}>Delete</button>
           </div>
         </>

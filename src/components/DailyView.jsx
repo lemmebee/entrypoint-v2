@@ -1,8 +1,7 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import BlockItem from "./BlockItem";
 import BlockEditor from "./BlockEditor";
 import PipelineSections from "./PipelineSections";
-import { minTo12h } from "../utils/constants";
 import { usePrayerTimes } from "../hooks/usePrayerTimes";
 import { computeSegments, resolveBlockTime, SEGMENT_IDS, SEGMENT_LABELS } from "../utils/prayerSegments";
 import { generatePrayerBlocks } from "./PrayerBlocks";
@@ -37,7 +36,7 @@ export default function DailyView({
   date, plan, location, onOpenLocation, onUpdateBlocks, onMonth, onSelectDate,
   customTypes = [], customTypeColors = {}, onAddCustomType, onRemoveCustomType,
   pipelineSections = [], onAddSection, onUpdateSection, onDeleteSection,
-  onToggleCollapse, onAddItem, onUpdateItem, onDeleteItem,
+  onToggleCollapse, onAddItem, onUpdateItem, onDeleteItem, onMoveItem, onReorderItems,
 }) {
   const [editingBlock, setEditingBlock] = useState(null);
   const [newBlockId, setNewBlockId] = useState(null);
@@ -45,6 +44,7 @@ export default function DailyView({
 
   const dayKey = getDayKey(parseISO(date));
   const isToday = date === todayISO();
+  const todayDayKey = getDayKey(new Date());
 
   const { times } = usePrayerTimes({ date, city: location?.city, country: location?.country, lat: location?.lat, lng: location?.lng });
   const segments = useMemo(() => computeSegments(times), [times]);
@@ -142,6 +142,21 @@ export default function DailyView({
     setNewBlockId(null);
   };
 
+  const handleCopyBlock = (block) => {
+    const dur = block.duration || DEFAULT_DUR;
+    const startM = timeToMin(block.time);
+    const newTime = minToTime(Math.min(startM + dur, 23 * 60 + 55));
+    const copy = {
+      ...block,
+      id: crypto.randomUUID(),
+      time: newTime,
+      segment: null,
+      offsetMinutes: 0,
+      tasks: (block.tasks || []).map((t) => ({ ...t, id: crypto.randomUUID(), done: false })),
+    };
+    onUpdateBlocks(dayKey, [...rawBlocks, copy]);
+  };
+
   const handleToggleTask = (blockId, taskId) => {
     const updated = rawBlocks.map((b) => {
       if (b.id !== blockId) return b;
@@ -163,9 +178,17 @@ export default function DailyView({
     setEditingBlock(null);
   };
 
-  // "Now" line (only shown if viewing today)
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  // "Now" line — live-updates every 60s
+  const [nowMin, setNowMin] = useState(() => {
+    const n = new Date(); return n.getHours() * 60 + n.getMinutes();
+  });
+  useEffect(() => {
+    if (!isToday) return;
+    const id = setInterval(() => {
+      const n = new Date(); setNowMin(n.getHours() * 60 + n.getMinutes());
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [isToday]);
   const nowTop = (nowMin / 60) * HOUR_HEIGHT;
 
   return (
@@ -189,7 +212,7 @@ export default function DailyView({
         {dayKeys.map((dk, i) => (
           <button
             key={dk}
-            className={`day-btn${dk === dayKey ? " active" : ""}`}
+            className={`day-btn${dk === dayKey ? " active" : ""}${dk === todayDayKey ? " today" : ""}`}
             onClick={() => onSelectDate(getWeekDate(date, dk))}
           >
             {DAY_SHORT[i]}
@@ -245,7 +268,7 @@ export default function DailyView({
 
           {HOURS.map((h) => (
             <div key={h} className="hour-row" style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }}>
-              <span className="hour-label">{minTo12h(h * 60)}</span>
+              <span className="hour-label">{String(h).padStart(2, "0")}:00</span>
               <div className="hour-line" />
             </div>
           ))}
@@ -284,6 +307,7 @@ export default function DailyView({
               extraTypeColors={customTypeColors}
               onEdit={(b) => { setNewBlockId(null); setEditingBlock(b); }}
               onDelete={handleDeleteBlock}
+              onCopy={handleCopyBlock}
               onTimeChange={handleBlockTimeChange}
               onResize={handleBlockResize}
               onToggleTask={handleToggleTask}
@@ -301,6 +325,8 @@ export default function DailyView({
         addItem={onAddItem}
         updateItem={onUpdateItem}
         deleteItem={onDeleteItem}
+        moveItem={onMoveItem}
+        reorderItems={onReorderItems}
       />
 
       {editingBlock && (
