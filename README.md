@@ -7,7 +7,7 @@
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-6-646cff?logo=vite&logoColor=white)](https://vitejs.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-12-ffca28?logo=firebase&logoColor=black)](https://firebase.google.com)
-[![License](https://img.shields.io/badge/license-private-lightgrey)](#)
+[![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 </div>
 
@@ -94,4 +94,4 @@ Data flows one way: hooks own state + persistence, components are pure render + 
 
 ## License
 
-Private project. Personal use.
+MIT — see [LICENSE](./LICENSE).
